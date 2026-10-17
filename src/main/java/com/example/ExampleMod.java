@@ -1,30 +1,62 @@
 package com.example;
 
-import net.fabricmc.api.ModInitializer;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.util.hit.HitResult;
 
-import net.minecraft.resources.Identifier;
+public class ExampleMod implements ClientModInitializer {
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+    @Override
+    public void onInitializeClient() {
+        // Регистрируем отрисовку нашего текста на экране (HUD)
+        HudRenderCallback.EVENT.register((drawContext, tickCounter) -> {
+            MinecraftClient client = MinecraftClient.getInstance();
+            
+            // Проверяем, что игрок в мире и игра не на паузе
+            if (client.player == null || client.world == null || client.options.hudHidden) {
+                return;
+            }
 
-public class ExampleMod implements ModInitializer {
-	public static final String MOD_ID = "modid";
+            // Проверяем, смотрит ли игрок на какое-либо существо
+            HitResult hitResult = client.crosshairTarget;
+            if (hitResult != null && hitResult.getType() == HitResult.Type.ENTITY) {
+                EntityHitResult entityHit = (EntityHitResult) hitResult;
+                
+                // Если цель является живым существом (игрок, моб)
+                if (entityHit.getEntity() instanceof LivingEntity target) {
+                    float playerHp = client.player.getHealth();
+                    float targetHp = target.getHealth();
 
-	// This logger is used to write text to the console and the log file.
-	// It is considered best practice to use your mod id as the logger's name.
-	// That way, it's clear which mod wrote info, warnings, and errors.
-	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+                    String text;
+                    int color;
 
-	@Override
-	public void onInitialize() {
-		// This code runs as soon as Minecraft is in a mod-load-ready state.
-		// However, some things (like resources) may still be uninitialized.
-		// Proceed with mild caution.
+                    // Логика сравнения здоровья
+                    if (playerHp > targetHp) {
+                        text = "WIN";
+                        color = 0x00FF00; // Зеленый цвет
+                    } else if (playerHp < targetHp) {
+                        text = "LOSE";
+                        color = 0xFF0000; // Красный цвет
+                    } else {
+                        text = "EQUAL";
+                        color = 0xFFFF00; // Желтый цвет, если ХП поровну
+                    }
 
-		LOGGER.info("Hello Fabric world!");
-	}
+                    // Получаем ширину текста для центрирования
+                    int textWidth = client.textRenderer.getWidth(text);
+                    
+                    // Координаты центра экрана
+                    int x = drawContext.getScaledWindowWidth() / 2 - textWidth / 2;
+                    int y = drawContext.getScaledWindowHeight() / 2 - 20; // Чуть выше прицела
 
-	public static Identifier id(String path) {
-		return Identifier.fromNamespaceAndPath(MOD_ID, path);
-	}
+                    // Рисуем текст с тенью
+                    drawContext.drawTextWithShadow(client.textRenderer, text, x, y, color);
+                }
+            }
+        });
+    }
 }
